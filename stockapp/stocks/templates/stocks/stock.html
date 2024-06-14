@@ -11,6 +11,9 @@
         {{ form.as_p }}
         <button type="submit">Get Stock Data</button>
     </form>
+    {% if name %}
+        <h2>Hello, {{name}}!</h2>
+    {% endif %}
     {% if graph %}
         <h2>Stock Price Graph</h2>
         <img src="data:image/png;base64,{{ graph }}" alt="Stock Price Graph">

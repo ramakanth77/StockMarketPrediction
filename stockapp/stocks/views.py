@@ -34,14 +34,16 @@ def plot_stock_data(data):
 
 def stock_view(request):
     graph = None
+    name = None
     if request.method == 'POST':
         form = StockForm(request.POST)
         if form.is_valid():
             ticker = form.cleaned_data['ticker']
+            name = form.cleaned_data['name']
             data = fetch_stock_data(ticker)
             if 'error' not in data:
                 graph = plot_stock_data(data)
     else:
         form = StockForm()
 
-    return render(request, 'stocks/stock.html', {'form': form, 'graph': graph})
+    return render(request, 'stocks/stock.html', {'form': form, 'graph': graph,'name':name})

@@ -3,3 +3,4 @@ from django import forms
 
 class StockForm(forms.Form):
     ticker = forms.CharField(label='Stock Ticker', max_length=10)
+    name = forms.CharField(label='My Name', max_length=50)
