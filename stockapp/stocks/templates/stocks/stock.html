@@ -1,0 +1,19 @@
+<!-- stocks/templates/stocks/stock.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Data</title>
+</head>
+<body>
+    <h1>Enter Stock Ticker</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Get Stock Data</button>
+    </form>
+    {% if graph %}
+        <h2>Stock Price Graph</h2>
+        <img src="data:image/png;base64,{{ graph }}" alt="Stock Price Graph">
+    {% endif %}
+</body>
+</html>
