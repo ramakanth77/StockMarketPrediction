@@ -10,7 +10,9 @@ def get_stock_data():
     try:
         data = request.get_json()
         ticker = data['ticker']
-        stock_data = yf.download(ticker, start='2020-01-01', end='2023-01-01')
+        period = data.get('period', '1d')  # Default to '1d' if not provided
+
+        stock_data = yf.download(ticker, period=period, interval='1d')
 
         if stock_data.empty:
             return jsonify({'error': 'No data found for the given ticker'}), 404
