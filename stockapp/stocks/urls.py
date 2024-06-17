@@ -1,9 +1,8 @@
-# stocks/urls.py
 from django.urls import path
-from .views import stock_view
+from . import views
 
 urlpatterns = [
-    path('', stock_view, name='stock_view'),
+    path('', views.index, name='index'),
+    path('stock/<int:stock_id>/', views.stock_detail, name='stock_detail'),
+    path('stock/<int:stock_id>/<str:period>/', views.stock_detail, name='stock_detail'),
 ]
-
-

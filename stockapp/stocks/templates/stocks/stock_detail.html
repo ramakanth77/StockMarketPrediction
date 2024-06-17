@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ stock.name }} - Stock Details</title>
+</head>
+<body>
+    <h1>{{ stock.name }} ({{ stock.ticker }})</h1>
+    <p>Current Price (INR): {{ stock.current_price_inr }}</p>
+    <p>% Change: {{ stock.percent_change }}</p>
+
+    <h2>Historical Data</h2>
+    <div>
+        <a href="{% url 'stock_detail' stock.id '1d' %}">1 Day</a>
+        <a href="{% url 'stock_detail' stock.id '5d' %}">5 Days</a>
+        <a href="{% url 'stock_detail' stock.id '1mo' %}">1 Month</a>
+        <a href="{% url 'stock_detail' stock.id '6mo' %}">6 Months</a>
+        <a href="{% url 'stock_detail' stock.id '1y' %}">1 Year</a>
+    </div>
+
+    <h2>Stock Price Graph</h2>
+    <img src="data:image/png;base64,{{ graph }}" alt="Stock Price Graph">
+
+    <table border="1">
+        <tr>
+            <th>Time</th>
+            <th>Price (INR)</th>
+        </tr>
+        {% for entry in history %}
+        <tr>
+            <td>{{ entry.Date }}</td>
+            <td>{{ entry.Close }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

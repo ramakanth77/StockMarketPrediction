@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Tracker</title>
+</head>
+<body>
+    <h1>Add Stock Ticker</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Add Ticker</button>
+    </form>
+
+    <h1>Stock Data</h1>
+    <table border="1">
+        <tr>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>Current Price (INR)</th>
+            <th>% Change</th>
+            <th>One Day History (Hourly)</th>
+        </tr>
+        {% for stock in stocks %}
+        <tr>
+            <td>{{ stock.ticker }}</td>
+            <td>{{ stock.name }}</td>
+            <td>{{ stock.current_price_inr }}</td>
+            <td>{{ stock.percent_change }}</td>
+            <td>
+                <a href="{% url 'stock_detail' stock.id %}">View 1 Day Graph</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

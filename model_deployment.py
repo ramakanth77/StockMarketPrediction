@@ -1,6 +1,6 @@
 import pandas as pd
 from flask import Flask, request, jsonify
-from tensorflow.keras.models import load_model
+import tensorflow.keras.models
 import numpy as np
 import joblib
 

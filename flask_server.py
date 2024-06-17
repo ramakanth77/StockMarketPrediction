@@ -11,13 +11,16 @@ def get_stock_data():
         data = request.get_json()
         ticker = data['ticker']
         period = data.get('period', '1d')  # Default to '1d' if not provided
+        interval = data.get('interval', '1h')  # Default to '1h' if not provided
 
-        stock_data = yf.download(ticker, period=period, interval='1d')
+        stock_data = yf.download(ticker, period=period, interval=interval)
 
         if stock_data.empty:
             return jsonify({'error': 'No data found for the given ticker'}), 404
 
-        stock_data = stock_data.reset_index().to_dict(orient='records')
+        stock_data.reset_index(inplace=True)
+        stock_data.rename(columns={'Datetime': 'Date'}, inplace=True)
+        stock_data = stock_data.to_dict(orient='records')
         return jsonify(stock_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
