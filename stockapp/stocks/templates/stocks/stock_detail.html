@@ -8,6 +8,15 @@
     <p>Current Price (INR): {{ stock.current_price_inr }}</p>
     <p>% Change: {{ stock.percent_change }}</p>
 
+    <h2>Stock Information</h2>
+    <p>Previous Close: {{ stock_info.prev_close }}</p>
+    <p>Open: {{ stock_info.open }}</p>
+    <p>Volume: {{ stock_info.volume }}</p>
+    <p>Average Volume (3m): {{ stock_info.avg_vol_3m }}</p>
+    <p>P/E Ratio: {{ stock_info.pe_ratio }}</p>
+    <p>Market Cap: {{ stock_info.market_cap }}</p>
+    <p>Beta: {{ stock_info.beta }}</p>
+
     <h2>Historical Data</h2>
     <div>
         <a href="{% url 'stock_detail' stock.id '1d' %}">1 Day</a>

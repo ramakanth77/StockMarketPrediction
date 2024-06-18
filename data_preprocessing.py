@@ -44,9 +44,9 @@ if __name__ == "__main__":
     processed_filename = 'AAPL_stock_data_processed.csv'
 
     data = load_data(filename)
-    if data is not None:
-        data = handle_missing_values(data)
+    if data is not None:a)
         data = feature_engineering(data)
+        data = handle_missing_values(dat
         data_scaled, scaler = normalize_data(data)
         if data_scaled is not None:
             data_scaled.to_csv(processed_filename)

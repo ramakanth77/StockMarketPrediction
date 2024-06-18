@@ -5,12 +5,19 @@ from .forms import StockForm
 import pandas as pd
 import threading
 import time
+import matplotlib
 import matplotlib.pyplot as plt
 import io
 import base64
 import matplotlib.dates as mdates
 import yfinance as yf
+from django.utils import timezone
+import json
 
+# Use the Agg backend for Matplotlib
+matplotlib.use('Agg')
+
+IST = timezone.get_default_timezone()
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',
@@ -18,12 +25,24 @@ def get_stock_data(ticker, period='1d', interval='1h'):
     data = response.json()
     if 'error' not in data:
         for entry in data:
-            entry['Date'] = pd.to_datetime(entry['Date'])
+            entry['Date'] = pd.to_datetime(entry['Date']).tz_localize('UTC').tz_convert(IST)
         return data
     else:
         print(data['error'])
         return []
 
+def fetch_stock_info(ticker):
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    return {
+        'prev_close': info.get('previousClose'),
+        'open': info.get('open'),
+        'volume': info.get('volume'),
+        'avg_vol_3m': info.get('averageVolume'),
+        'pe_ratio': info.get('trailingPE'),
+        'market_cap': info.get('marketCap'),
+        'beta': info.get('beta')
+    }
 
 def fetch_and_update_stock(stock):
     hist_data = get_stock_data(stock.ticker)
@@ -42,8 +61,8 @@ def fetch_and_update_stock(stock):
         stock.save()
 
         for _, row in hist_df.iterrows():
-            StockHistory.objects.create(stock=stock, time=row['Date'], price=row['Close_INR'])
-
+            naive_time = row['Date'].replace(tzinfo=None)  # Ensure the datetime is naive
+            StockHistory.objects.create(stock=stock, time=timezone.make_aware(naive_time), price=row['Close_INR'])
 
 def update_stocks_periodically():
     while True:
@@ -51,6 +70,33 @@ def update_stocks_periodically():
             fetch_and_update_stock(stock)
         time.sleep(3600)  # Update every hour
 
+def plot_stock_graph(history, small_graph=False):
+    dates = [entry['Date'] for entry in history]
+    close_prices = [entry['Close'] for entry in history]
+
+    plt.ioff()  # Turn off interactive mode
+    if small_graph:
+        plt.figure(figsize=(3, 1))
+        plt.plot(dates, close_prices, linewidth=1)
+        plt.axis('off')
+    else:
+        plt.figure(figsize=(10, 5))
+        plt.plot(dates, close_prices, label='Close Price')
+        plt.xlabel('Date')
+        plt.ylabel('Close Price')
+        plt.title('Stock Prices Over Time')
+        plt.legend()
+        plt.gcf().autofmt_xdate()
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight')
+    buffer.seek(0)
+    image_png = buffer.getvalue()
+    buffer.close()
+    plt.close()  # Close the plot to avoid warnings
+
+    graph = base64.b64encode(image_png).decode('utf-8')
+    return graph
 
 def index(request):
     if request.method == 'POST':
@@ -60,44 +106,15 @@ def index(request):
             return redirect('index')
     else:
         form = StockForm()
+
+    if request.method == 'GET' and 'delete' in request.GET:
+        stock_id = request.GET.get('delete')
+        Stock.objects.filter(id=stock_id).delete()
+        return redirect('index')
+
     stocks = Stock.objects.all()
+
     return render(request, 'stocks/index.html', {'form': form, 'stocks': stocks})
-
-
-def plot_stock_graph(history, period):
-    dates = [entry['Date'] for entry in history]
-    close_prices = [entry['Close'] for entry in history]
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(dates, close_prices, label='Close Price')
-    plt.xlabel('Date')
-    plt.ylabel('Close Price')
-    plt.title('Stock Prices Over Time')
-    plt.legend()
-
-    # Customize x-axis based on period
-    if period == '1d':
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-    elif period == '5d':
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%a'))
-    elif period == '1mo':
-        plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=2))
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
-    elif period in ['3mo', '6mo', '1y']:
-        plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-
-    plt.gcf().autofmt_xdate()
-
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    image_png = buffer.getvalue()
-    buffer.close()
-
-    graph = base64.b64encode(image_png).decode('utf-8')
-    return graph
-
 
 def stock_detail(request, stock_id, period='1d'):
     stock = get_object_or_404(Stock, id=stock_id)
@@ -115,15 +132,17 @@ def stock_detail(request, stock_id, period='1d'):
 
     # Ensure the historical data is correctly formatted
     history = hist_df.reset_index()[['Date', 'Close']].to_dict(orient='records')
-    graph = plot_stock_graph(history, period)
+    graph = plot_stock_graph(history, small_graph=False)
+
+    stock_info = fetch_stock_info(stock.ticker)
 
     return render(request, 'stocks/stock_detail.html', {
         'stock': stock,
         'history': history,
         'period': period,
-        'graph': graph
+        'graph': graph,
+        'stock_info': stock_info
     })
-
 
 # Start the background thread to update stock prices
 threading.Thread(target=update_stocks_periodically, daemon=True).start()
