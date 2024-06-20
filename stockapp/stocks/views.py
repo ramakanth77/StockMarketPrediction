@@ -12,12 +12,74 @@ import base64
 import matplotlib.dates as mdates
 import yfinance as yf
 from django.utils import timezone
-import json
+from django.contrib.auth import login, authenticate, logout
+from django.shortcuts import render, redirect
+from .forms import SignUpForm, LoginForm, HoldingForm
+from .models import Holding, Stock
 
 # Use the Agg backend for Matplotlib
 matplotlib.use('Agg')
 
 IST = timezone.get_default_timezone()
+
+def signup(request):
+    if request.method == 'POST':
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            raw_password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=raw_password)
+            login(request, user)
+            return redirect('index')
+    else:
+        form = SignUpForm()
+    return render(request, 'signup.html', {'form': form})
+
+def user_login(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('index')
+    else:
+        form = LoginForm()
+    return render(request, 'login.html', {'form': form})
+
+def user_logout(request):
+    logout(request)
+    return redirect('index')
+
+def holdings(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    if request.method == 'POST':
+        form = HoldingForm(request.POST)
+        if form.is_valid():
+            holding = form.save(commit=False)
+            holding.user = request.user
+            holding.save()
+            return redirect('holdings')
+    else:
+        form = HoldingForm()
+
+    user_holdings = Holding.objects.filter(user=request.user)
+    total_value = sum(holding.current_value() for holding in user_holdings)
+    total_invested = sum(holding.quantity * holding.stock.current_price_inr for holding in user_holdings)
+    total_gain_loss = total_value - total_invested
+
+    return render(request, 'holdings.html', {
+        'holdings': user_holdings,
+        'total_value': total_value,
+        'total_invested': total_invested,
+        'total_gain_loss': total_gain_loss,
+        'form': form
+    })
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',
@@ -68,7 +130,7 @@ def update_stocks_periodically():
     while True:
         for stock in Stock.objects.all():
             fetch_and_update_stock(stock)
-        time.sleep(3600)  # Update every hour
+        time.sleep(3)  # Update every hour
 
 def plot_stock_graph(history, small_graph=False):
     dates = [entry['Date'] for entry in history]
@@ -114,7 +176,7 @@ def index(request):
 
     stocks = Stock.objects.all()
 
-    return render(request, 'stocks/index.html', {'form': form, 'stocks': stocks})
+    return render(request, 'index.html', {'form': form, 'stocks': stocks})
 
 def stock_detail(request, stock_id, period='1d'):
     stock = get_object_or_404(Stock, id=stock_id)
@@ -136,7 +198,7 @@ def stock_detail(request, stock_id, period='1d'):
 
     stock_info = fetch_stock_info(stock.ticker)
 
-    return render(request, 'stocks/stock_detail.html', {
+    return render(request, 'stock_detail.html', {
         'stock': stock,
         'history': history,
         'period': period,

@@ -1,5 +1,5 @@
+from django.contrib.auth.models import User
 from django.db import models
-
 
 class Stock(models.Model):
     ticker = models.CharField(max_length=10, unique=True)
@@ -11,8 +11,18 @@ class Stock(models.Model):
     def __str__(self):
         return self.ticker
 
-
 class StockHistory(models.Model):
     stock = models.ForeignKey(Stock, related_name='history', on_delete=models.CASCADE)
     time = models.DateTimeField()
     price = models.FloatField()
+
+class Holding(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+
+    def current_value(self):
+        return self.quantity * self.stock.current_price_inr
+
+    def __str__(self):
+        return f'{self.user.username} holds {self.quantity} of {self.stock.ticker}'

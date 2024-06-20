@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Holdings</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        nav a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: blue;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="{% url 'index' %}">Home</a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'holdings' %}">My Holdings</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        {% else %}
+            <a href="{% url 'signup' %}">Signup</a>
+            <a href="{% url 'login' %}">Login</a>
+        {% endif %}
+    </nav>
+
+    <h1>Your Holdings</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Add/Update Holding</button>
+    </form>
+
+    <h2>Current Holdings</h2>
+    <table>
+        <tr>
+            <th>Ticker</th>
+            <th>Quantity</th>
+            <th>Current Value (INR)</th>
+        </tr>
+        {% for holding in holdings %}
+        <tr>
+            <td>{{ holding.stock.ticker }}</td>
+            <td>{{ holding.quantity }}</td>
+            <td>{{ holding.current_value }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <td colspan="2"><strong>Total Value</strong></td>
+            <td>{{ total_value }}</td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Total Invested</strong></td>
+            <td>{{ total_invested }}</td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Total Gain/Loss</strong></td>
+            <td>{{ total_gain_loss }}</td>
+        </tr>
+    </table>
+</body>
+</html>
