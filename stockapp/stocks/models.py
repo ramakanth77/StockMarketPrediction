@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 
 class Stock(models.Model):
-    ticker = models.CharField(max_length=10, unique=True)
+    ticker = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=100)
     current_price_inr = models.FloatField(null=True, blank=True)
     percent_change = models.FloatField(null=True, blank=True)
