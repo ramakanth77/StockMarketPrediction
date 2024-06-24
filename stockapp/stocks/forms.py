@@ -9,6 +9,10 @@ class HoldingForm(forms.ModelForm):
     class Meta:
         model = Holding
         fields = ['stock', 'quantity']
+        labels = {
+            'stock': 'Stock Ticker',
+            'quantity': 'Number of Shares'
+        }
 
 class SignUpForm(UserCreationForm):
     email = forms.EmailField(max_length=200, help_text='Required')

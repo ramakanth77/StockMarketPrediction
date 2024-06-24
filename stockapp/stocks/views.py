@@ -9,18 +9,33 @@ import matplotlib
 import matplotlib.pyplot as plt
 import io
 import base64
-import matplotlib.dates as mdates
 import yfinance as yf
 from django.utils import timezone
 from django.contrib.auth import login, authenticate, logout
-from django.shortcuts import render, redirect
 from .forms import SignUpForm, LoginForm, HoldingForm
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+import requests
 from .models import Holding, Stock
+
 
 # Use the Agg backend for Matplotlib
 matplotlib.use('Agg')
 
 IST = timezone.get_default_timezone()
+
+
+def predict_stock(request, ticker):
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    response = requests.post('http://127.0.0.1:5000/predict', json={'ticker': ticker})
+    prediction = response.json()
+
+    if 'error' in prediction:
+        return JsonResponse({'error': prediction['error']})
+    else:
+        return JsonResponse({'prediction': prediction['prediction']})
 
 def signup(request):
     if request.method == 'POST':
@@ -61,9 +76,22 @@ def holdings(request):
     if request.method == 'POST':
         form = HoldingForm(request.POST)
         if form.is_valid():
-            holding = form.save(commit=False)
-            holding.user = request.user
-            holding.save()
+            stock = form.cleaned_data.get('stock')
+            quantity = form.cleaned_data.get('quantity')
+
+            # Check if holdings already exist
+            existing_holdings = Holding.objects.filter(user=request.user, stock=stock)
+            if existing_holdings.exists():
+                holding = existing_holdings.first()
+                if quantity == 0:
+                    holding.delete()
+                else:
+                    holding.quantity = quantity
+                    holding.save()
+            else:
+                if quantity > 0:
+                    Holding.objects.create(user=request.user, stock=stock, quantity=quantity)
+
             return redirect('holdings')
     else:
         form = HoldingForm()
@@ -80,6 +108,7 @@ def holdings(request):
         'total_gain_loss': total_gain_loss,
         'form': form
     })
+
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',
@@ -130,7 +159,7 @@ def update_stocks_periodically():
     while True:
         for stock in Stock.objects.all():
             fetch_and_update_stock(stock)
-        time.sleep(3)  # Update every hour
+        time.sleep(300)  # Update every hour
 
 def plot_stock_graph(history, small_graph=False):
     dates = [entry['Date'] for entry in history]

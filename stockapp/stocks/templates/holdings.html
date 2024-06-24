@@ -23,6 +23,26 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        function predictStock(ticker) {
+            fetch(`/predict/${ticker}/`, {  // Note the trailing slash
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({'ticker': ticker})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    document.getElementById('prediction_' + ticker).innerText = 'Predicted Price: ' + data.prediction;
+                }
+            });
+        }
+    </script>
 </head>
 <body>
     <nav>
@@ -49,12 +69,18 @@
             <th>Ticker</th>
             <th>Quantity</th>
             <th>Current Value (INR)</th>
+            <th>Predict</th>
+            <th>Prediction</th>
         </tr>
         {% for holding in holdings %}
         <tr>
             <td>{{ holding.stock.ticker }}</td>
             <td>{{ holding.quantity }}</td>
             <td>{{ holding.current_value }}</td>
+            <td>
+                <button type="button" onclick="predictStock('{{ holding.stock.ticker }}')">Predict</button>
+            </td>
+            <td id="prediction_{{ holding.stock.ticker }}"></td>
         </tr>
         {% endfor %}
         <tr>

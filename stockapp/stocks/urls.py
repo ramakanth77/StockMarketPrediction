@@ -9,4 +9,5 @@ urlpatterns = [
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
     path('holdings/', views.holdings, name='holdings'),
+    path('predict/<str:ticker>/', views.predict_stock, name='predict_stock'),
 ]
