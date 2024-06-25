@@ -22,11 +22,7 @@ class Holding(models.Model):
     def __str__(self):
         return f"{self.stock.ticker} - {self.quantity} shares"
 
-
-
-
 class StockHistory(models.Model):
     stock = models.ForeignKey(Stock, related_name='history', on_delete=models.CASCADE)
     time = models.DateTimeField()
     price = models.FloatField()
-

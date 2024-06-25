@@ -1,27 +1,20 @@
-import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Stock, StockHistory
-from .forms import StockForm
+from django.http import JsonResponse
+from django.utils import timezone
+from django.contrib.auth import login, authenticate, logout
+from .models import Stock, Holding, StockHistory
+from .forms import StockForm, SignUpForm, LoginForm, HoldingForm
+import yfinance as yf
 import pandas as pd
-import threading
-import time
-import matplotlib
 import matplotlib.pyplot as plt
 import io
 import base64
-from django.contrib.auth import login, authenticate, logout
-from .forms import SignUpForm, LoginForm, HoldingForm
-from django.utils import timezone
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
 import requests
-from .models import Holding, Stock
-from .forms import HoldingForm
-import yfinance as yf
-
+import threading
+import time
 
 # Use the Agg backend for Matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 
 IST = timezone.get_default_timezone()
 
@@ -38,6 +31,7 @@ def predict_stock(request, ticker):
     else:
         return JsonResponse({'prediction': prediction['prediction']})
 
+
 def signup(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
@@ -52,8 +46,9 @@ def signup(request):
         form = SignUpForm()
     return render(request, 'signup.html', {'form': form})
 
+
 def user_login(request):
-    if request.method == 'POST':
+    if (request.method == 'POST'):
         form = LoginForm(request.POST)
         if form.is_valid():
             username = form.cleaned_data.get('username')
@@ -66,13 +61,10 @@ def user_login(request):
         form = LoginForm()
     return render(request, 'login.html', {'form': form})
 
+
 def user_logout(request):
     logout(request)
     return redirect('index')
-
-
-
-
 
 
 def get_stock_data(ticker):
@@ -80,9 +72,9 @@ def get_stock_data(ticker):
     info = stock.info
     current_price = info.get('regularMarketPrice')
     if current_price is None:
-        # Handle the case where the price is not available
         raise ValueError(f"Could not fetch current price for ticker {ticker}")
     return current_price
+
 
 def holdings(request):
     if request.method == 'POST':
@@ -101,11 +93,8 @@ def holdings(request):
 
     for holding in user_holdings:
         current_price = get_stock_data(holding.stock.ticker)
-        print(current_price)
         if isinstance(current_price, list):
-            current_price = current_price[0] # If it's a list, take the first element
-            current_price = current_price['Close']
-            print(current_price)
+            current_price = current_price[0]
         holding.stock.current_price_inr = float(current_price)
         holding.total_value = float(holding.quantity) * float(current_price)
         holding.save()
@@ -122,17 +111,19 @@ def holdings(request):
         'total_gain_loss': round(total_gain_loss, 2)
     })
 
+
 def update_prices(request):
     user_holdings = Holding.objects.filter(user=request.user)
     for holding in user_holdings:
         current_price = get_stock_data(holding.stock.ticker)
         if isinstance(current_price, list):
-            current_price = current_price[0]  # If it's a list, take the first element
+            current_price = current_price[0]
         holding.stock.current_price_inr = float(current_price)
         holding.total_value = float(holding.quantity) * float(current_price)
         holding.stock.save()
         holding.save()
     return JsonResponse({'status': 'updated'})
+
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',
@@ -143,8 +134,8 @@ def get_stock_data(ticker, period='1d', interval='1h'):
             entry['Date'] = pd.to_datetime(entry['Date']).tz_localize('UTC').tz_convert(IST)
         return data
     else:
-        print(data['error'])
         return []
+
 
 def fetch_stock_info(ticker):
     stock = yf.Ticker(ticker)
@@ -158,6 +149,7 @@ def fetch_stock_info(ticker):
         'market_cap': info.get('marketCap'),
         'beta': info.get('beta')
     }
+
 
 def fetch_and_update_stock(stock):
     hist_data = get_stock_data(stock.ticker)
@@ -176,20 +168,22 @@ def fetch_and_update_stock(stock):
         stock.save()
 
         for _, row in hist_df.iterrows():
-            naive_time = row['Date'].replace(tzinfo=None)  # Ensure the datetime is naive
+            naive_time = row['Date'].replace(tzinfo=None)
             StockHistory.objects.create(stock=stock, time=timezone.make_aware(naive_time), price=row['Close_INR'])
+
 
 def update_stocks_periodically():
     while True:
         for stock in Stock.objects.all():
             fetch_and_update_stock(stock)
-        time.sleep(300)  # Update every hour
+        time.sleep(300)
+
 
 def plot_stock_graph(history, small_graph=False):
     dates = [entry['Date'] for entry in history]
     close_prices = [entry['Close'] for entry in history]
 
-    plt.ioff()  # Turn off interactive mode
+    plt.ioff()
     if small_graph:
         plt.figure(figsize=(3, 1))
         plt.plot(dates, close_prices, linewidth=1)
@@ -208,16 +202,17 @@ def plot_stock_graph(history, small_graph=False):
     buffer.seek(0)
     image_png = buffer.getvalue()
     buffer.close()
-    plt.close()  # Close the plot to avoid warnings
+    plt.close()
 
     graph = base64.b64encode(image_png).decode('utf-8')
     return graph
+
 
 def index(request):
     if request.method == 'POST':
         form = StockForm(request.POST)
         if form.is_valid():
-            form.save()  # Save the form data to the database
+            form.save()
             return redirect('index')
     else:
         form = StockForm()
@@ -231,21 +226,17 @@ def index(request):
 
     return render(request, 'index.html', {'form': form, 'stocks': stocks})
 
+
 def stock_detail(request, stock_id, period='1d'):
     stock = get_object_or_404(Stock, id=stock_id)
     interval = '1h' if period in ['1d', '5d'] else '1d'
     hist_data = get_stock_data(stock.ticker, period=period, interval=interval)
 
-    # Convert to DataFrame
     hist_df = pd.DataFrame(hist_data)
-
-    # Check if 'Date' column exists and set it to the index
     if 'Date' in hist_df.columns:
         hist_df.set_index('Date', inplace=True)
-
     hist_df['Close'] = hist_df['Close'].apply(lambda x: round(x, 2))
 
-    # Ensure the historical data is correctly formatted
     history = hist_df.reset_index()[['Date', 'Close']].to_dict(orient='records')
     graph = plot_stock_graph(history, small_graph=False)
 
@@ -259,5 +250,5 @@ def stock_detail(request, stock_id, period='1d'):
         'stock_info': stock_info
     })
 
-# Start the background thread to update stock prices
+
 threading.Thread(target=update_stocks_periodically, daemon=True).start()
