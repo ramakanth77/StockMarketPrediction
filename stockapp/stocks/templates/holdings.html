@@ -42,6 +42,17 @@
                 }
             });
         }
+
+        function updatePrices() {
+            fetch('/update_prices/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'updated') {
+                        location.reload();  // Reload the page to see updated prices
+                    }
+                });
+        }
+        setInterval(updatePrices, 60000);  // Update prices every 1 minute
     </script>
 </head>
 <body>
@@ -68,7 +79,9 @@
         <tr>
             <th>Ticker</th>
             <th>Quantity</th>
-            <th>Current Value (INR)</th>
+            <th>Purchase Price (INR)</th>
+            <th>Current Price (INR)</th>
+            <th>Total Value (INR)</th>
             <th>Predict</th>
             <th>Prediction</th>
         </tr>
@@ -76,7 +89,9 @@
         <tr>
             <td>{{ holding.stock.ticker }}</td>
             <td>{{ holding.quantity }}</td>
-            <td>{{ holding.current_value }}</td>
+            <td>{{ holding.purchase_price }}</td>
+            <td>{{ holding.stock.current_price_inr }}</td>
+            <td>{{ holding.quantity|floatformat:2 }} x {{ holding.stock.current_price_inr|floatformat:2 }} = {{ holding.total_value|floatformat:2 }}</td>
             <td>
                 <button type="button" onclick="predictStock('{{ holding.stock.ticker }}')">Predict</button>
             </td>

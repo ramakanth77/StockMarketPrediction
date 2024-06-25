@@ -9,14 +9,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 import io
 import base64
-import yfinance as yf
-from django.utils import timezone
 from django.contrib.auth import login, authenticate, logout
 from .forms import SignUpForm, LoginForm, HoldingForm
+from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 import requests
 from .models import Holding, Stock
+from .forms import HoldingForm
+import yfinance as yf
 
 
 # Use the Agg backend for Matplotlib
@@ -69,46 +70,69 @@ def user_logout(request):
     logout(request)
     return redirect('index')
 
-def holdings(request):
-    if not request.user.is_authenticated:
-        return redirect('login')
 
+
+
+
+
+def get_stock_data(ticker):
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    current_price = info.get('regularMarketPrice')
+    if current_price is None:
+        # Handle the case where the price is not available
+        raise ValueError(f"Could not fetch current price for ticker {ticker}")
+    return current_price
+
+def holdings(request):
     if request.method == 'POST':
         form = HoldingForm(request.POST)
         if form.is_valid():
-            stock = form.cleaned_data.get('stock')
-            quantity = form.cleaned_data.get('quantity')
-
-            # Check if holdings already exist
-            existing_holdings = Holding.objects.filter(user=request.user, stock=stock)
-            if existing_holdings.exists():
-                holding = existing_holdings.first()
-                if quantity == 0:
-                    holding.delete()
-                else:
-                    holding.quantity = quantity
-                    holding.save()
-            else:
-                if quantity > 0:
-                    Holding.objects.create(user=request.user, stock=stock, quantity=quantity)
-
+            holding = form.save(commit=False)
+            holding.user = request.user
+            holding.save()
             return redirect('holdings')
     else:
         form = HoldingForm()
 
     user_holdings = Holding.objects.filter(user=request.user)
-    total_value = sum(holding.current_value() for holding in user_holdings)
-    total_invested = sum(holding.quantity * holding.stock.current_price_inr for holding in user_holdings)
+    total_value = 0.0
+    total_invested = 0.0
+
+    for holding in user_holdings:
+        current_price = get_stock_data(holding.stock.ticker)
+        print(current_price)
+        if isinstance(current_price, list):
+            current_price = current_price[0] # If it's a list, take the first element
+            current_price = current_price['Close']
+            print(current_price)
+        holding.stock.current_price_inr = float(current_price)
+        holding.total_value = float(holding.quantity) * float(current_price)
+        holding.save()
+        total_value += holding.total_value
+        total_invested += holding.quantity * holding.purchase_price
+
     total_gain_loss = total_value - total_invested
 
-    return render(request, 'holdings.html', {
+    return render(request, 'stocks/holdings.html', {
+        'form': form,
         'holdings': user_holdings,
-        'total_value': total_value,
-        'total_invested': total_invested,
-        'total_gain_loss': total_gain_loss,
-        'form': form
+        'total_value': round(total_value, 2),
+        'total_invested': round(total_invested, 2),
+        'total_gain_loss': round(total_gain_loss, 2)
     })
 
+def update_prices(request):
+    user_holdings = Holding.objects.filter(user=request.user)
+    for holding in user_holdings:
+        current_price = get_stock_data(holding.stock.ticker)
+        if isinstance(current_price, list):
+            current_price = current_price[0]  # If it's a list, take the first element
+        holding.stock.current_price_inr = float(current_price)
+        holding.total_value = float(holding.quantity) * float(current_price)
+        holding.stock.save()
+        holding.save()
+    return JsonResponse({'status': 'updated'})
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',

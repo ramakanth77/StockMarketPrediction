@@ -5,14 +5,19 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
+from django import forms
+from .models import Holding
+
 class HoldingForm(forms.ModelForm):
     class Meta:
         model = Holding
-        fields = ['stock', 'quantity']
+        fields = ['stock', 'quantity', 'purchase_price']
         labels = {
             'stock': 'Stock Ticker',
-            'quantity': 'Number of Shares'
+            'quantity': 'Number of Shares',
+            'purchase_price': 'Purchase Price per Share'
         }
+
 
 class SignUpForm(UserCreationForm):
     email = forms.EmailField(max_length=200, help_text='Required')
