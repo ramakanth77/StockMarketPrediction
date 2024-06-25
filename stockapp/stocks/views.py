@@ -71,6 +71,8 @@ def get_stock_data(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
     current_price = info.get('regularMarketPrice')
+    print('get_stock_data')
+    print(current_price)
     if current_price is None:
         raise ValueError(f"Could not fetch current price for ticker {ticker}")
     return current_price
@@ -83,6 +85,16 @@ def holdings(request):
             holding = form.save(commit=False)
             holding.user = request.user
             holding.save()
+            stock = form.cleaned_data.get('stock')
+            quantity = form.cleaned_data.get('quantity')
+            existing_holdings = Holding.objects.filter(user=request.user, stock=stock)
+            if existing_holdings.exists():
+                holding = existing_holdings.first()
+                if quantity == 0:
+                    holding.delete()
+                else:
+                    holding.quantity = quantity
+                    holding.save()
             return redirect('holdings')
     else:
         form = HoldingForm()
@@ -92,9 +104,12 @@ def holdings(request):
     total_invested = 0.0
 
     for holding in user_holdings:
-        current_price = get_stock_data(holding.stock.ticker)
-        if isinstance(current_price, list):
-            current_price = current_price[0]
+        current_price_list = get_stock_data(holding.stock.ticker)
+        current_price=0
+        if(len(current_price_list)>0):
+            full_details_dict = current_price_list[0]
+            current_price = full_details_dict['Close']
+            print(current_price)
         holding.stock.current_price_inr = float(current_price)
         holding.total_value = float(holding.quantity) * float(current_price)
         holding.save()
@@ -103,7 +118,7 @@ def holdings(request):
 
     total_gain_loss = total_value - total_invested
 
-    return render(request, 'stocks/holdings.html', {
+    return render(request, 'holdings.html', {
         'form': form,
         'holdings': user_holdings,
         'total_value': round(total_value, 2),
