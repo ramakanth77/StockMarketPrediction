@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -52,7 +53,7 @@
                     }
                 });
         }
-        setInterval(updatePrices, 60000);  // Update prices every 1 minute
+        setInterval(updatePrices, 120000);  // Update prices every 2 minutes
     </script>
 </head>
 <body>
@@ -89,9 +90,9 @@
         <tr>
             <td>{{ holding.stock.ticker }}</td>
             <td>{{ holding.quantity }}</td>
-            <td>{{ holding.purchase_price }}</td>
-            <td>{{ holding.stock.current_price_inr }}</td>
-            <td>{{ holding.quantity|floatformat:2 }} x {{ holding.stock.current_price_inr|floatformat:2 }} = {{ holding.total_value|floatformat:2 }}</td>
+            <td>{{ holding.purchase_price|floatformat:2 }}</td>
+            <td>{{ holding.stock.current_price_inr|floatformat:2 }}</td>
+            <td>{{ holding.quantity|floatformat:2|multiply:holding.stock.current_price_inr|floatformat:2 }}</td>
             <td>
                 <button type="button" onclick="predictStock('{{ holding.stock.ticker }}')">Predict</button>
             </td>
@@ -99,15 +100,15 @@
         </tr>
         {% endfor %}
         <tr>
-            <td colspan="2"><strong>Total Value</strong></td>
+            <td colspan="4"><strong>Total Value</strong></td>
             <td>{{ total_value }}</td>
         </tr>
         <tr>
-            <td colspan="2"><strong>Total Invested</strong></td>
+            <td colspan="4"><strong>Total Invested</strong></td>
             <td>{{ total_invested }}</td>
         </tr>
         <tr>
-            <td colspan="2"><strong>Total Gain/Loss</strong></td>
+            <td colspan="4"><strong>Total Gain/Loss</strong></td>
             <td>{{ total_gain_loss }}</td>
         </tr>
     </table>

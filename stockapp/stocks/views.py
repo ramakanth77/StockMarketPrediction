@@ -67,34 +67,47 @@ def user_logout(request):
     return redirect('index')
 
 
+
+
 def get_stock_data(ticker):
     stock = yf.Ticker(ticker)
-    info = stock.info
-    current_price = info.get('regularMarketPrice')
-    print('get_stock_data')
-    print(current_price)
-    if current_price is None:
-        raise ValueError(f"Could not fetch current price for ticker {ticker}")
-    return current_price
-
+    info = stock.history(period="1d")
+    return info.reset_index().to_dict(orient='records')
 
 def holdings(request):
     if request.method == 'POST':
         form = HoldingForm(request.POST)
         if form.is_valid():
-            holding = form.save(commit=False)
-            holding.user = request.user
-            holding.save()
             stock = form.cleaned_data.get('stock')
             quantity = form.cleaned_data.get('quantity')
+
+            # Fetch the current price
+            current_price_list = get_stock_data(stock.ticker)
+            current_price = 0
+            if len(current_price_list) > 0:
+                full_details_dict = current_price_list[0]
+                current_price = full_details_dict['Close']
+
+            # Check for existing holdings
             existing_holdings = Holding.objects.filter(user=request.user, stock=stock)
             if existing_holdings.exists():
                 holding = existing_holdings.first()
                 if quantity == 0:
                     holding.delete()
                 else:
-                    holding.quantity = quantity
+                    total_quantity = holding.quantity + quantity
+                    holding.purchase_price = (holding.purchase_price * holding.quantity + current_price * quantity) / total_quantity
+                    holding.quantity = total_quantity
+                    holding.stock.current_price_inr = float(current_price)
                     holding.save()
+            else:
+                # If no existing holding, create a new one
+                holding = form.save(commit=False)
+                holding.user = request.user
+                holding.purchase_price = float(current_price)
+                holding.stock.current_price_inr = float(current_price)
+                holding.save()
+
             return redirect('holdings')
     else:
         form = HoldingForm()
@@ -105,11 +118,10 @@ def holdings(request):
 
     for holding in user_holdings:
         current_price_list = get_stock_data(holding.stock.ticker)
-        current_price=0
-        if(len(current_price_list)>0):
+        current_price = 0
+        if len(current_price_list) > 0:
             full_details_dict = current_price_list[0]
             current_price = full_details_dict['Close']
-            print(current_price)
         holding.stock.current_price_inr = float(current_price)
         holding.total_value = float(holding.quantity) * float(current_price)
         holding.save()
@@ -126,19 +138,19 @@ def holdings(request):
         'total_gain_loss': round(total_gain_loss, 2)
     })
 
-
 def update_prices(request):
     user_holdings = Holding.objects.filter(user=request.user)
     for holding in user_holdings:
-        current_price = get_stock_data(holding.stock.ticker)
-        if isinstance(current_price, list):
-            current_price = current_price[0]
+        current_price_list = get_stock_data(holding.stock.ticker)
+        current_price = 0
+        if len(current_price_list) > 0:
+            full_details_dict = current_price_list[0]
+            current_price = full_details_dict['Close']
         holding.stock.current_price_inr = float(current_price)
         holding.total_value = float(holding.quantity) * float(current_price)
         holding.stock.save()
         holding.save()
     return JsonResponse({'status': 'updated'})
-
 
 def get_stock_data(ticker, period='1d', interval='1h'):
     response = requests.post('http://127.0.0.1:5000/get_stock_data',
